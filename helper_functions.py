@@ -192,7 +192,7 @@ def subplot_by_category(df, i):
     axs[2].hist(category['Active'], bins=50)
     axs[2].set_title(f"Active Category {i}", fontsize=16)
     axs[2].set_xlabel("Active", fontsize=14)
-    axs[2].set_ylabel("Quantoity", fontsize=14)
+    axs[2].set_ylabel("Quantity", fontsize=14)
 
    
     fig.tight_layout()
