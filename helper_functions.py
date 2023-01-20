@@ -130,8 +130,8 @@ def plot_time_series(cfips, timesteps, values, format="-", start=0, end=None, la
 def train_get_result(data, window_size, horizon, epoch, cfips):
     c = cfips
     df = data.loc[data.cfips == c]
-    last_density = df.microbusiness_density.values[-1]
-    last_active = df.active.values[-1]
+    last_density = df.microbusiness_density.values[-9]
+    last_active = df.active.values[-9]
     
     # Create train dataset
     windows, labels = make_windows(df.microbusiness_density.values, window_size=window_size, horizon=horizon)
