@@ -61,7 +61,27 @@ def make_train_test_split(windows, labels, split_size=1):
 
 
 # In[8]:
+def get_smape(y_true, y_pred):
+    smap = np.zeros(len(y_true))
+    
+    num = np.abs(y_true - y_pred)
+    dem = ((np.abs(y_true) + np.abs(y_true)) / 2)
+    
+    pos_ind = (y_true!=0)|(y_pred!=0)
+    smap[pos_ind] = num[pos_ind] / dem[pos_ind]
+    
+    return 100 * np.men(smap)
 
+def get_vsmape(y_true, y_pred):
+    smap = np.zeros(len(y_true))
+    
+    num = np.abs(y_true - y_pred)
+    dem = ((np.abs(y_true) + np.abs(y_pred)) / 2)
+    
+    pos_ind = (y_true!=0)|(y_pred!=0)
+    smap[pos_ind] = num[pos_ind] / dem[pos_ind]
+    
+    return 100 * smap
 
 # Create the function to take in model predictions and truth values and return evaluation metrics
 def evaluate_preds(y_true, y_pred):
@@ -78,11 +98,15 @@ def evaluate_preds(y_true, y_pred):
     #print(f'RMSE: {rmse}')
     mape = tf.keras.metrics.mean_absolute_percentage_error(y_true, y_pred)[0]
     #print(f'MAPE: {mape}')
+    smape = get_smape(y_true.numpy(), y_pred.numpy())
+    vsmape = get_vsmape(y_true.numpy(), y_pred.numpy())
 
     return {"mae": mae.numpy(),
             "mse": mse.numpy(),
             "rmse": rmse.numpy(),
-            "mape": mape.numpy()}
+            "mape": mape.numpy(),
+           "smape": smape.numpy(),
+           "vsmape": vsmape.numpy()}
 
 
 # In[9]:
@@ -98,6 +122,7 @@ def make_preds(model, input_data):
 
 
 # In[10]:
+
 
 
 # Create a function to plot time series data
@@ -165,6 +190,8 @@ def train_get_result(data, window_size, horizon, epoch, cfips):
     # Evaluate 
     results = evaluate_preds(test_labels, preds)
     mape = results['mape']
+    
+    #smape = 
     
     
     return (c, last_density, last_active, mape, preds)
