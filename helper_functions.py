@@ -70,7 +70,7 @@ def get_smape(y_true, y_pred):
     pos_ind = (y_true!=0)|(y_pred!=0)
     smap[pos_ind] = num[pos_ind] / dem[pos_ind]
     
-    return 100 * np.men(smap)
+    return 100 * np.mean(smap)
 
 def get_vsmape(y_true, y_pred):
     smap = np.zeros(len(y_true))
@@ -98,15 +98,11 @@ def evaluate_preds(y_true, y_pred):
     #print(f'RMSE: {rmse}')
     mape = tf.keras.metrics.mean_absolute_percentage_error(y_true, y_pred)[0]
     #print(f'MAPE: {mape}')
-    smape = get_smape(y_true.numpy(), y_pred.numpy())
-    vsmape = get_vsmape(y_true.numpy(), y_pred.numpy())
 
     return {"mae": mae.numpy(),
             "mse": mse.numpy(),
             "rmse": rmse.numpy(),
-            "mape": mape.numpy(),
-           "smape": smape.numpy(),
-           "vsmape": vsmape.numpy()}
+            "mape": mape.numpy()}
 
 
 # In[9]:
