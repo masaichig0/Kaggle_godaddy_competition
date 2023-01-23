@@ -19,4 +19,7 @@ When I get the result with tensorflow Dense model with 1.093, I started to think
   I decided to get MAPE for entire dataset with each train model (tf dense, LR, and same values), then compare the results. I categorized the best score for next step. 
   I saved the result on CSV file compare_mape.csv. 
   
-### Next Step is to use the model to train with the category. I will also submit the reuslt with this model. 
+* Notebook; train_multiple_models.ipynb
+  Use the result of comapare_mape.csv and trained on multiple methods. The result improved significantly and I am ready to apply kaggle competition. I saved the result on CSV file forecast_with_category.csv 
+  
+### Next Step is to apply Kaggle competition on the multiple models traing method to get submission.  
