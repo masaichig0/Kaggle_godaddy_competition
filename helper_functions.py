@@ -165,9 +165,9 @@ def train_get_result(data, window_size, horizon, epoch, cfips):
 
     model = tf.keras.Sequential([
                 layers.Lambda(lambda x: tf.expand_dims(x, axis=1)),
-                layers.Dense(128, activation="relu"),
-                layers.Dense(128, activation="relu"),
-                layers.Dense(128, activation="relu"),
+                layers.Dense(64, activation="relu"),
+                #layers.Dense(128, activation="relu"),
+                #layers.Dense(128, activation="relu"),
                 layers.Dense(horizon)
             ], name='dense_model')
     
