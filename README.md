@@ -22,4 +22,9 @@ When I get the result with tensorflow Dense model with 1.093, I started to think
 * Notebook; train_multiple_models.ipynb
   Use the result of comapare_mape.csv and trained on multiple methods. The result improved significantly and I am ready to apply kaggle competition. I saved the result on CSV file forecast_with_category.csv 
   
+* helper_functions.py
+  All the functions I used in those notebook is in here.
+  
 ### Next Step is to apply Kaggle competition on the multiple models traing method to get submission.  
+
+Link: https://www.kaggle.com/code/masahiroichigo/multiple-model/edit
