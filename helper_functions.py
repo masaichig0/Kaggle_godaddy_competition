@@ -83,6 +83,8 @@ def get_vsmape(y_true, y_pred):
     
     return 100 * smap
 
+
+
 # Create the function to take in model predictions and truth values and return evaluation metrics
 def evaluate_preds(y_true, y_pred):
     # Make sure float32 datatype for metric calculations
@@ -117,7 +119,6 @@ def make_preds(model, input_data):
     return tf.squeeze(forecast) # return 1D array of predictions
 
 
-# In[10]:
 
 
 
@@ -148,7 +149,7 @@ def plot_time_series(cfips, timesteps, values, format="-", start=0, end=None, la
 # In[ ]:
 
 
-def train_get_result(data, window_size, horizon, epoch, cfips):
+def train_get_result(data, window_size, horizon, epoch, split_size, cfips):
     c = cfips
     df = data.loc[data.cfips == c]
     last_density = df.microbusiness_density.values[-9]
@@ -158,18 +159,18 @@ def train_get_result(data, window_size, horizon, epoch, cfips):
     windows, labels = make_windows(df.microbusiness_density.values, window_size=window_size, horizon=horizon)
     
     # Split trin and test set
-    train_windows, test_windows, train_labels, test_labels = make_train_test_split(windows, labels)
+    train_windows, test_windows, train_labels, test_labels = make_train_test_split(windows, labels, split_size=split_size)
     
     # create model
     tf.random.set_seed(42)
 
     model = tf.keras.Sequential([
                 layers.Lambda(lambda x: tf.expand_dims(x, axis=1)),
-                layers.Dense(64, activation="relu"),
-                #layers.Dense(128, activation="relu"),
-                #layers.Dense(128, activation="relu"),
+                layers.LSTM(128, activation="relu", return_sequences=True),
+                layers.LSTM(128, activation="relu", return_sequences=True),
+                layers.LSTM(128, activation="relu"),
                 layers.Dense(horizon)
-            ], name='dense_model')
+            ], name=f'lstm_model_{c}')
     
     model.compile(loss='mae', 
                  optimizer=tf.keras.optimizers.Adam(),
@@ -179,6 +180,7 @@ def train_get_result(data, window_size, horizon, epoch, cfips):
              y=train_labels, 
              epochs=epoch,
              batch_size=256, verbose=0)
+    
     
     # Predict test data
     preds = make_preds(model, test_windows)
