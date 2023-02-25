@@ -223,11 +223,13 @@ def subplot_by_category(df, i):
     fig.tight_layout()
     plt.show()
     
-def train_get_results_multi_variables(data, window_size, horizon, epoch, split_size, cfips):
+def train_get_results_multi_variables(train_data, window_size, horizon, epoch, split_size, cfips):
     c = cfips
-    df = data.loc[data.cfips == c].reset_index()[['cfips', 'active', 'microbusiness_density', ]]
+    df = train_data.loc[train_data.cfips == c].reset_index()[['cfips', 'active', 'microbusiness_density', ]]
     last_density = df.microbusiness_density.values[-(horizon+1)]
     last_active = df.active.values[-(horizon+1)]
+    
+    
     # add window columns
     for i in range(window_size):
         df[f'microbusiness_density+{i+1}'] = df['microbusiness_density'].shift(periods=i+1)
@@ -272,5 +274,68 @@ def train_get_results_multi_variables(data, window_size, horizon, epoch, split_s
     preds = make_preds(model, test_data)
     results = evaluate_preds(test_labels, preds)
     mape = results['mape']
+        
 
     return (c, last_density, last_active, mape, preds)
+
+def get_score_for_competition(train_data, result_data, window_size, horizon, epoch, split_size, cfips):
+    c = cfips
+    df = train_data.loc[train_data.cfips == c].reset_index()[['cfips', 'active', 'microbusiness_density', ]]
+    last_density = df.microbusiness_density.values[-(horizon+1)]
+    last_active = df.active.values[-(horizon+1)]
+    
+    
+    model = result_data.loc[result_data.Country == c]['category'].values[0]
+    
+    if model == "lstm":
+        # add window columns
+        for i in range(window_size):
+            df[f'microbusiness_density+{i+1}'] = df['microbusiness_density'].shift(periods=i+1)
+
+        # create sequenced label
+        windows, labels = make_windows(df['microbusiness_density'].values, window_size=(window_size-horizon)+1, horizon=horizon)
+
+        df = df[window_size:]
+
+        df = df.reset_index().drop('index', axis=1)
+
+        # Set microbusiness_density sequence as label, and rest of the data as feature
+        X = df.drop(['cfips', 'microbusiness_density'], axis=1)
+        Y = labels
+    
+    
+        # Scale the feature
+        scaler = MinMaxScaler()
+        X = scaler.fit_transform(X)
+    
+        train_data, test_data, train_labels, test_labels = make_train_test_split(X, Y, split_size=split_size)
+        
+        test = tf.expand_dims(train_data[-1], axis=0)
+
+        tf.random.set_seed(42)
+
+        model = tf.keras.Sequential([
+                        layers.Lambda(lambda x: tf.expand_dims(x, axis=1)),
+                        layers.LSTM(128, activation="relu", return_sequences=True),
+                        layers.LSTM(128, activation="relu", return_sequences=True),
+                        layers.LSTM(128, activation="relu"),
+                        layers.Dense(8)
+                    ], name=f'lstm_model')
+
+        model.compile(loss='mae', 
+                      optimizer=tf.keras.optimizers.Adam(),
+                      metrics=['mae', 'mse'])
+
+        model.fit(x=train_data, 
+                  y=train_labels, 
+                  epochs=epoch,
+                  batch_size=256, verbose=0)
+
+        preds = make_preds(model, test)
+        forecast = np.array(preds)
+        
+    else:
+        preds = [last_density]*8
+        forecast = np.array(preds)
+
+    return (c, forecast)
