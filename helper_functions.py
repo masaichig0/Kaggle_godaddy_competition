@@ -10,6 +10,10 @@ import matplotlib.pyplot as plt
 plt.rcParams.update({"figure.figsize": (8, 5), "figure.dpi": 120})
 import os
 from sklearn.preprocessing import MinMaxScaler
+import xgboost as xgb
+from xgboost import XGBRegressor
+from sklearn.linear_model import LinearRegression
+
 
 # In[6]:
 
@@ -149,14 +153,14 @@ def plot_time_series(cfips, timesteps, values, format="-", start=0, end=None, la
 # In[ ]:
 
 
-def train_get_result(data, window_size, horizon, epoch, split_size, cfips):
+def train_get_result(data, window_s, horizon, epoch, split_size, cfips):
     c = cfips
     df = data.loc[data.cfips == c]
-    last_density = df.microbusiness_density.values[-9]
-    last_active = df.active.values[-9]
+    last_density = df.microbusiness_density.values[-1]
+    last_active = df.active.values[-1]
     
     # Create train dataset
-    windows, labels = make_windows(df.microbusiness_density.values, window_size=window_size, horizon=horizon)
+    windows, labels = make_windows(df.microbusiness_density.values, window_size=window_s, horizon=horizon)
     
     # Split trin and test set
     train_windows, test_windows, train_labels, test_labels = make_train_test_split(windows, labels, split_size=split_size)
@@ -166,11 +170,11 @@ def train_get_result(data, window_size, horizon, epoch, split_size, cfips):
 
     model = tf.keras.Sequential([
                 layers.Lambda(lambda x: tf.expand_dims(x, axis=1)),
-                layers.LSTM(128, activation="relu", return_sequences=True),
-                layers.LSTM(128, activation="relu", return_sequences=True),
-                layers.LSTM(128, activation="relu"),
+                layers.Dense(128, activation="relu"),
+                layers.Dense(128, activation="relu"),
+                layers.Dense(128, activation="relu"),
                 layers.Dense(horizon)
-            ], name=f'lstm_model_{c}')
+            ], name=f'dense_model_{c}')
     
     model.compile(loss='mae', 
                  optimizer=tf.keras.optimizers.Adam(),
@@ -183,16 +187,17 @@ def train_get_result(data, window_size, horizon, epoch, split_size, cfips):
     
     
     # Predict test data
-    preds = make_preds(model, test_windows)
-    
+    test = tf.expand_dims(train_windows[-1], axis=0)
+    preds = make_preds(model, test)
+    forecast = np.array(preds)
     # Evaluate 
-    results = evaluate_preds(test_labels, preds)
-    mape = results['mape']
+    #results = evaluate_preds(test_labels, preds)
+    #mape = results['mape']
     
    
     
     
-    return (c, last_density, last_active, mape, preds)
+    return (c, forecast)
 
 
 def subplot_by_category(df, i):
@@ -285,6 +290,8 @@ def train_get_results_multi_variables_dense(train_data, window_size, horizon, ep
     last_active = df.active.values[-(horizon+1)]
     
     
+    
+    
     # add window columns
     for i in range(window_size):
         df[f'microbusiness_density+{i+1}'] = df['microbusiness_density'].shift(periods=i+1)
@@ -327,6 +334,7 @@ def train_get_results_multi_variables_dense(train_data, window_size, horizon, ep
               batch_size=256, verbose=0)
 
     preds = make_preds(model, test_data)
+    forecast = np.array(preds)
     results = evaluate_preds(test_labels, preds)
     mape = results['mape']
         
@@ -339,10 +347,13 @@ def get_score_for_competition(train_data, result_data, window_size, horizon, epo
     last_density = df.microbusiness_density.values[-(horizon+1)]
     last_active = df.active.values[-(horizon+1)]
     
+    x_train = np.arange(39).reshape((-1,1))
+    x_test = np.arange(38,47).reshape((-1,1))
+    
     
     model = result_data.loc[result_data.Country == c]['category'].values[0]
     
-    if model == "lstm":
+    if model == "LSTM":
         # add window columns
         for i in range(window_size):
             df[f'microbusiness_density+{i+1}'] = df['microbusiness_density'].shift(periods=i+1)
@@ -389,7 +400,91 @@ def get_score_for_competition(train_data, result_data, window_size, horizon, epo
         preds = make_preds(model, test)
         forecast = np.array(preds)
         
-    else:
+    elif model == 'LR':
+        train_model = LinearRegression()
+        train_model.fit(x_train,df['microbusiness_density'])
+        p = train_model.predict(x_train)
+        
+        # Compute train error
+        err = p - df['microbusiness_density'].values
+        rng = df['microbusiness_density'].max() - df['microbusiness_density'].min()
+
+        # Determin if time series is linear or not
+        s = 0
+        for k in range(39):
+            e = np.abs(err[k])
+            r = e / rng # absolute error divided by range
+            s += r
+        s = s/39 # now S is MAPE mean absolute percentage error 
+   
+
+        # Infer test data with linear regression
+        p2 = train_model.predict(x_test)
+        shift = last_density - p2[0]
+        # Get Renear Regression results    
+        forecast = p2[1:]+shift
+        #test_label = np.expand_dims(np.array(train_data[train_data['cfips'] == c]['microbusiness_density']), axis=1)
+        forecast = np.array(forecast)
+                                             
+    elif model == 'XGBR':
+        xgbr = XGBRegressor(objective='reg:squarederror', n_estimators=100, learning_rate=0.075)
+        
+        xgbr.fit(x_train, df['microbusiness_density'])
+        preds = xgbr.predict(x_test[1:])
+        forecast = np.array(preds)
+        
+    elif model == 'Dense':
+        result = train_get_result(train_data, window_s=8, horizon=8, epoch=500, split_size=0, cfips=c)
+        forecast = np.array(result[1])
+        
+    elif model == 'Dense_MV':
+        # add window columns
+        for i in range(window_size):
+            df[f'microbusiness_density+{i+1}'] = df['microbusiness_density'].shift(periods=i+1)
+
+        # create sequenced label
+        windows, labels = make_windows(df['microbusiness_density'].values, window_size=(window_size-horizon)+1, horizon=horizon)
+
+        df = df[window_size:]
+
+        df = df.reset_index().drop('index', axis=1)
+
+        # Set microbusiness_density sequence as label, and rest of the data as feature
+        X = df.drop(['cfips', 'microbusiness_density'], axis=1)
+        Y = labels
+    
+    
+        # Scale the feature
+        scaler = MinMaxScaler()
+        X = scaler.fit_transform(X)
+    
+        train_data, test_data, train_labels, test_labels = make_train_test_split(X, Y, split_size=split_size)
+        
+        test = tf.expand_dims(train_data[-1], axis=0)
+
+        tf.random.set_seed(42)
+
+        model = tf.keras.Sequential([
+                        layers.Lambda(lambda x: tf.expand_dims(x, axis=1)),
+                        layers.Dense(128, activation="relu"),
+                        layers.Dense(128, activation="relu"),
+                        layers.Dense(128, activation="relu"),
+                        layers.Dense(8)
+                    ], name=f'dense_mv_model')
+
+        model.compile(loss='mae', 
+                      optimizer=tf.keras.optimizers.Adam(),
+                      metrics=['mae', 'mse'])
+
+        model.fit(x=train_data, 
+                  y=train_labels, 
+                  epochs=epoch,
+                  batch_size=256, verbose=0)
+
+        preds = make_preds(model, test)
+        forecast = np.array(preds)
+                                                                                     
+    elif model == 'SV':
         preds = [last_density]*8
         forecast = np.array(preds)
 
