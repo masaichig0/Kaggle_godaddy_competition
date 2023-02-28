@@ -397,8 +397,10 @@ def get_score_for_competition(train_data, result_data, window_size, horizon, epo
                   epochs=epoch,
                   batch_size=256, verbose=0)
 
-        preds = make_preds(model, test)
-        forecast = np.array(preds)
+        p = make_preds(model, test)
+        #shift = last_density - p[0]
+        #preds = p[:]+shift
+        forecast = np.array(p)
         
     elif model == 'LR':
         train_model = LinearRegression()
@@ -422,20 +424,25 @@ def get_score_for_competition(train_data, result_data, window_size, horizon, epo
         p2 = train_model.predict(x_test)
         shift = last_density - p2[0]
         # Get Renear Regression results    
-        forecast = p2[1:]+shift
+        f = p2[1:]+shift
         #test_label = np.expand_dims(np.array(train_data[train_data['cfips'] == c]['microbusiness_density']), axis=1)
-        forecast = np.array(forecast)
+        forecast = np.array(f)
                                              
     elif model == 'XGBR':
         xgbr = XGBRegressor(objective='reg:squarederror', n_estimators=100, learning_rate=0.075)
         
         xgbr.fit(x_train, df['microbusiness_density'])
-        preds = xgbr.predict(x_test[1:])
-        forecast = np.array(preds)
+        p = xgbr.predict(x_test[1:])
+        #shift = last_density - p[0]
+        #preds = p[:]+shift
+        forecast = np.array(p)
         
     elif model == 'Dense':
         result = train_get_result(train_data, window_s=8, horizon=8, epoch=500, split_size=0, cfips=c)
-        forecast = np.array(result[1])
+        p = result[1]
+        shift = last_density - p[0]
+        preds = p[:]+shift
+        forecast = np.array(preds)
         
     elif model == 'Dense_MV':
         # add window columns
@@ -481,8 +488,10 @@ def get_score_for_competition(train_data, result_data, window_size, horizon, epo
                   epochs=epoch,
                   batch_size=256, verbose=0)
 
-        preds = make_preds(model, test)
-        forecast = np.array(preds)
+        p = make_preds(model, test)
+        #shift = last_density - p[0]
+        #preds = p[:]+shift
+        forecast = np.array(p)
                                                                                      
     elif model == 'SV':
         preds = [last_density]*8
